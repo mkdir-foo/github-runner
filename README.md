@@ -43,9 +43,19 @@ Repository settings it needs:
 
 `renovate.json` bumps the base image (and with it, the runner version), every tool in `build/versions.sh`, goss, and the pinned action digests. This needs the Renovate GitHub app installed on the repo.
 
+**Publishing a new image doesn't deploy it.** The scale set pins an exact tag in
+[gitops-flux](https://github.com/faangbait/gitops-flux), in
+`infrastructure/github-runners/self-hosted-helmrelease.yaml`. After a runner
+version bump merges here and CI publishes the image, change the `image:` tag
+there to the new `<runner>-<yyyymmdd>-<sha>` tag. Don't skip this for runner
+bumps: GitHub stops sending jobs to runners that fall too far behind the latest
+release. Other rebuilds (tool bumps, the weekly rebuild) also go live only
+through that file.
+
 ## Using it with ARC
 
-The base image has no entrypoint, so the scale set's pod template has to start the runner:
+The scale set is a Flux HelmRelease in gitops-flux (see above). The base image
+has no entrypoint, so its pod template has to start the runner:
 
 ```yaml
 template:
