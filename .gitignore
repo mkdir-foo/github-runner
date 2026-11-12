@@ -1,0 +1,3 @@
+# build/ holds the image install scripts. Re-include it in case a global
+# gitignore excludes build directories.
+!build/

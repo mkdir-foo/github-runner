@@ -1,0 +1,97 @@
+name: Build runner image
+
+# Every push and PR builds and tests the image. Pushes to main also publish it
+# to Docker Hub. The weekly run rebuilds to pick up Ubuntu security updates.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/github-runner
+  LOCAL_TAG: github-runner:ci
+  GOSS_VERSION: v0.4.10
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --pull \
+            --load \
+            --tag "${LOCAL_TAG}" \
+            .
+
+      - name: Install goss
+        run: |
+          set -euo pipefail
+          v="${GOSS_VERSION#v}"
+          base="https://github.com/goss-org/goss/releases/download/${GOSS_VERSION}"
+          bin="${HOME}/.local/bin"
+          tmp="$(mktemp -d)"
+          mkdir -p "${bin}"
+          curl -fsSL -o "${tmp}/goss.tar.gz" "${base}/goss_${v}_linux_x86_64.tar.gz"
+          curl -fsSL -o "${tmp}/SHA256SUMS" "${base}/goss_${v}_SHA256SUMS"
+          expected="$(awk -v f="goss_${v}_linux_x86_64.tar.gz" '$2 == f {print $1}' "${tmp}/SHA256SUMS")"
+          echo "${expected}  ${tmp}/goss.tar.gz" | sha256sum -c -
+          tar -xzf "${tmp}/goss.tar.gz" -C "${bin}" goss
+          curl -fsSL -o "${bin}/dgoss" "${base}/dgoss"
+          chmod 0755 "${bin}/goss" "${bin}/dgoss"
+          echo "${bin}" >> "${GITHUB_PATH}"
+
+      - name: Test
+        env:
+          GOSS_FILE: goss.yaml
+        run: dgoss run --entrypoint /usr/bin/sleep "${LOCAL_TAG}" infinity
+
+      - name: Tags
+        id: tags
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          test -n "${{ vars.DOCKERHUB_USERNAME }}" \
+            || { echo "::error::Set the DOCKERHUB_USERNAME repository variable"; exit 1; }
+          runner="$(sed -nE 's#^FROM ghcr\.io/actions/actions-runner:([0-9.]+)$#\1#p' Dockerfile)"
+          test -n "${runner}" \
+            || { echo "::error::Couldn't read the runner version from the Dockerfile FROM line"; exit 1; }
+          stamp="$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+          {
+            echo "runner=${runner}"
+            echo "list=${IMAGE}:${runner}-${stamp} ${IMAGE}:${runner} ${IMAGE}:latest"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Log in to Docker Hub
+        if: steps.tags.outcome == 'success'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push
+        if: steps.tags.outcome == 'success'
+        env:
+          TAGS: ${{ steps.tags.outputs.list }}
+        run: |
+          set -euo pipefail
+          for tag in ${TAGS}; do
+            docker tag "${LOCAL_TAG}" "${tag}"
+            docker push "${tag}"
+            echo "- \`${tag}\`" >> "${GITHUB_STEP_SUMMARY}"
+          done

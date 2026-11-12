@@ -1,0 +1,87 @@
+# Image checks, run by dgoss in CI as the runner user.
+user:
+  runner:
+    exists: true
+    uid: 1001
+    gid: 121
+    groups: [runner, sudo, docker]
+
+group:
+  docker:
+    exists: true
+    gid: 500
+
+file:
+  /home/runner/run.sh:
+    exists: true
+    mode: "0755"
+  /opt/hostedtoolcache:
+    exists: true
+    filetype: directory
+    owner: runner
+  /opt/uv-python:
+    exists: true
+    filetype: directory
+    owner: runner
+
+package:
+  build-essential: {installed: true}
+  buildah: {installed: true}
+  docker-ce: {installed: true}
+  docker-compose-plugin: {installed: true}
+  dumb-init: {installed: true}
+  gosu: {installed: true}
+  libpq-dev: {installed: true}
+  libyaml-dev: {installed: true}
+  nodejs: {installed: true}
+  openssh-client: {installed: true}
+  podman: {installed: true}
+  python3-venv: {installed: true}
+  rsync: {installed: true}
+  skopeo: {installed: true}
+  wget: {installed: true}
+  xz-utils: {installed: true}
+  zstd: {installed: true}
+
+command:
+  aws:
+    exec: aws --version
+    exit-status: 0
+    stdout: ["/aws-cli\\/2\\./"]
+  gh:
+    exec: gh --version
+    exit-status: 0
+  git-lfs:
+    exec: git lfs version
+    exit-status: 0
+  yq:
+    exec: yq --version
+    exit-status: 0
+  pwsh:
+    exec: pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+    exit-status: 0
+  npx:
+    exec: npx --version
+    exit-status: 0
+  docker-cli:
+    exec: docker --version
+    exit-status: 0
+  docker-compose:
+    exec: docker-compose version
+    exit-status: 0
+  uv:
+    exec: uv --version
+    exit-status: 0
+  python-3.14:
+    # Must resolve offline, from the copy baked into the image.
+    exec: env UV_OFFLINE=1 UV_PYTHON_DOWNLOADS=never uv run --no-project --python 3.14 python -c 'import sys; print(sys.version)'
+    exit-status: 0
+    stdout: ["/^3\\.14\\./"]
+  locale:
+    exec: locale
+    exit-status: 0
+    stdout: ["LANG=en_US.UTF-8"]
+    stderr: ["!/Cannot set/"]
+  sudo:
+    exec: sudo -n true
+    exit-status: 0
