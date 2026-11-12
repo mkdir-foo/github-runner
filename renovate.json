@@ -20,5 +20,12 @@
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "goss-org/goss"
     }
+  ],
+  "packageRules": [
+    {
+      "description": "Stay on the PowerShell 7.6 LTS line",
+      "matchPackageNames": ["PowerShell/PowerShell"],
+      "allowedVersions": "7.6.x"
+    }
   ]
 }

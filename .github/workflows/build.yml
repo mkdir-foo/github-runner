@@ -2,10 +2,17 @@ name: Build runner image
 
 # Every push and PR builds and tests the image. Pushes to main also publish it
 # to Docker Hub. The weekly run rebuilds to pick up Ubuntu security updates.
+# Changes that can't affect the image don't trigger a build.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - README.md
+      - renovate.json
   pull_request:
+    paths-ignore:
+      - README.md
+      - renovate.json
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
