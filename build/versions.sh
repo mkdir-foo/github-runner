@@ -13,7 +13,7 @@ PWSH_VERSION="7.6.10"
 # renovate: datasource=github-releases depName=mikefarah/yq
 YQ_VERSION="4.54.3"
 # renovate: datasource=github-releases depName=astral-sh/uv
-UV_VERSION="0.13.7"
+UV_VERSION="0.13.9"
 
 # Minor version only. The pinned uv release decides the exact patch, so the
 # build stays reproducible and moves forward when uv is bumped.
